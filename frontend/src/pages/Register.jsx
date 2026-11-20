@@ -4,6 +4,41 @@ import { useAuth } from '../context/AuthContext.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
 import { GraduationCap, Mail, Lock, User, IdCard, AlertCircle, ArrowRight } from 'lucide-react';
+import { getErrorMessage, getFieldErrors } from '../utils/apiErrors.js';
+
+// Keep these in sync with backend/src/middleware/validators.js
+const NAME_MAX = 100;
+const PASSWORD_MIN = 6;
+const STUDENT_ID_MAX = 50;
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+function validate({ name, email, password, role, studentId }) {
+  const errors = {};
+
+  if (!name.trim()) {
+    errors.name = 'Please enter your full name.';
+  } else if (name.trim().length > NAME_MAX) {
+    errors.name = `Name must be ${NAME_MAX} characters or fewer.`;
+  }
+
+  if (!email.trim()) {
+    errors.email = 'Please enter your email address.';
+  } else if (!EMAIL_PATTERN.test(email.trim())) {
+    errors.email = 'Please enter a valid email address, like name@example.com.';
+  }
+
+  if (role === 'student' && studentId.trim().length > STUDENT_ID_MAX) {
+    errors.studentId = `Student ID must be ${STUDENT_ID_MAX} characters or fewer.`;
+  }
+
+  if (!password) {
+    errors.password = 'Please create a password.';
+  } else if (password.length < PASSWORD_MIN) {
+    errors.password = `Password must be at least ${PASSWORD_MIN} characters long.`;
+  }
+
+  return errors;
+}
 
 export default function Register() {
   const navigate = useNavigate();
@@ -16,21 +51,33 @@ export default function Register() {
   const [studentId, setStudentId] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  // Clear a field's error as soon as the person starts correcting it.
+  const clearFieldError = (field) => {
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      setError('Please fill out all required fields');
+
+    const clientErrors = validate({ name, email, password, role, studentId });
+    if (Object.keys(clientErrors).length > 0) {
+      setFieldErrors(clientErrors);
+      setError('Please fix the highlighted fields and try again.');
       return;
     }
+
     setError('');
+    setFieldErrors({});
     setIsLoading(true);
 
     try {
       const user = await register({
         name: name.trim(),
         email: email.trim(),
-        password: password.trim(),
+        password,
         role,
         student_id: role === 'student' ? studentId.trim() || undefined : undefined,
       });
@@ -42,11 +89,22 @@ export default function Register() {
       }
     } catch (err) {
       console.error(err);
-      setError(
-        err.response?.data?.details?.[0]?.message ||
-          err.response?.data?.message ||
-          'Registration failed. Please check your information.'
-      );
+
+      // Field-specific problems reported by the server (validation rules)
+      const serverFieldErrors = getFieldErrors(err);
+
+      // Email already in use
+      if (err.response?.status === 409) {
+        serverFieldErrors.email =
+          'An account with this email already exists. Try signing in instead.';
+      }
+
+      if (Object.keys(serverFieldErrors).length > 0) {
+        setFieldErrors(serverFieldErrors);
+        setError('Please fix the highlighted fields and try again.');
+      } else {
+        setError(getErrorMessage(err, 'Registration failed. Please check your information and try again.'));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +140,7 @@ export default function Register() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           {/* Role selector */}
           <div className="space-y-1.5">
             <label className="block text-xs font-semibold uppercase tracking-wider text-[#414844]">
@@ -91,7 +149,7 @@ export default function Register() {
             <div className="grid grid-cols-2 gap-2 bg-[#f3f4f5] p-1 rounded-xl">
               <button
                 type="button"
-                onClick={() => setRole('student')}
+                onClick={() => { setRole('student'); setError(''); }}
                 className={`py-2 text-xs font-semibold rounded-lg transition-all ${
                   role === 'student'
                     ? 'bg-white text-[#012d1d] shadow-xs'
@@ -102,7 +160,7 @@ export default function Register() {
               </button>
               <button
                 type="button"
-                onClick={() => setRole('admin')}
+                onClick={() => { setRole('admin'); clearFieldError('studentId'); }}
                 className={`py-2 text-xs font-semibold rounded-lg transition-all ${
                   role === 'admin'
                     ? 'bg-white text-[#012d1d] shadow-xs'
@@ -118,7 +176,8 @@ export default function Register() {
             label="Full Name"
             placeholder="e.g. Andrea Brown"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => { setName(e.target.value); clearFieldError('name'); }}
+            error={fieldErrors.name}
             icon={User}
             required
             autoFocus
@@ -129,7 +188,8 @@ export default function Register() {
             type="email"
             placeholder="you@joineazy.dev"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => { setEmail(e.target.value); clearFieldError('email'); }}
+            error={fieldErrors.email}
             icon={Mail}
             required
           />
@@ -139,7 +199,8 @@ export default function Register() {
               label="Student ID"
               placeholder="e.g. STU-1005"
               value={studentId}
-              onChange={(e) => setStudentId(e.target.value)}
+              onChange={(e) => { setStudentId(e.target.value); clearFieldError('studentId'); }}
+              error={fieldErrors.studentId}
               icon={IdCard}
               helperText="Assigned campus identification number"
             />
@@ -150,7 +211,9 @@ export default function Register() {
             type="password"
             placeholder="••••••••"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => { setPassword(e.target.value); clearFieldError('password'); }}
+            error={fieldErrors.password}
+            helperText={`Use at least ${PASSWORD_MIN} characters`}
             icon={Lock}
             required
           />

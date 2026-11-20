@@ -3,21 +3,30 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
-import { GraduationCap, Mail, Lock, AlertCircle, ArrowRight, ShieldCheck, User } from 'lucide-react';
+import { GraduationCap, Mail, Lock, AlertCircle, ArrowRight } from 'lucide-react';
+import { getErrorMessage } from '../utils/apiErrors.js';
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState('divya@joineazy.dev');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email || !password) {
-      setError('Please enter both email and password');
+    if (!email.trim() && !password) {
+      setError('Please enter your email address and password.');
+      return;
+    }
+    if (!email.trim()) {
+      setError('Please enter your email address.');
+      return;
+    }
+    if (!password) {
+      setError('Please enter your password.');
       return;
     }
     setError('');
@@ -32,18 +41,14 @@ export default function Login() {
       }
     } catch (err) {
       console.error(err);
-      setError(
-        err.response?.data?.message || 'Invalid email or password. (Hint: password123)'
-      );
+      if (err.response?.status === 401) {
+        setError('Incorrect email or password. Please check your details and try again.');
+      } else {
+        setError(getErrorMessage(err, 'Unable to sign in. Please try again.'));
+      }
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = (demoEmail) => {
-    setEmail(demoEmail);
-    setPassword('password123');
-    setError('');
   };
 
   return (
@@ -78,7 +83,7 @@ export default function Login() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <Input
             label="Email Address"
             type="email"
@@ -112,77 +117,5 @@ export default function Login() {
           </Button>
         </form>
 
-        {/* Quick Demo Logins Bar */}
-        <div className="mt-6 pt-6 border-t border-[#f3f4f5]">
-          <p className="text-[11px] font-semibold text-[#717973] uppercase tracking-wider text-center mb-3">
-            Quick Fill Demo Accounts:
-          </p>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('divya@joineazy.dev')}
-              className={`p-2.5 rounded-xl border text-left transition-all ${
-                email === 'divya@joineazy.dev'
-                  ? 'border-[#012d1d] bg-[#012d1d]/5 font-semibold text-[#012d1d]'
-                  : 'border-[#e1e3e4] hover:bg-[#f8f9fa] text-[#414844]'
-              }`}
-            >
-              <p className="font-bold flex items-center gap-1">
-                <User className="w-3 h-3 text-[#2D6A4F]" /> Divya (Leader)
-              </p>
-              <p className="text-[10px] text-[#717973] truncate">Student</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('prof@joineazy.dev')}
-              className={`p-2.5 rounded-xl border text-left transition-all ${
-                email === 'prof@joineazy.dev'
-                  ? 'border-[#012d1d] bg-[#012d1d]/5 font-semibold text-[#012d1d]'
-                  : 'border-[#e1e3e4] hover:bg-[#f8f9fa] text-[#414844]'
-              }`}
-            >
-              <p className="font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3 text-[#012d1d]" /> Prof. Alexander
-              </p>
-              <p className="text-[10px] text-[#717973] truncate">Admin</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('aarav@joineazy.dev')}
-              className={`p-2.5 rounded-xl border text-left transition-all ${
-                email === 'aarav@joineazy.dev'
-                  ? 'border-[#012d1d] bg-[#012d1d]/5 font-semibold text-[#012d1d]'
-                  : 'border-[#e1e3e4] hover:bg-[#f8f9fa] text-[#414844]'
-              }`}
-            >
-              <p className="font-bold">Aarav Patel</p>
-              <p className="text-[10px] text-[#717973] truncate">Student (Member)</p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleQuickLogin('riya@joineazy.dev')}
-              className={`p-2.5 rounded-xl border text-left transition-all ${
-                email === 'riya@joineazy.dev'
-                  ? 'border-[#012d1d] bg-[#012d1d]/5 font-semibold text-[#012d1d]'
-                  : 'border-[#e1e3e4] hover:bg-[#f8f9fa] text-[#414844]'
-              }`}
-            >
-              <p className="font-bold">Riya Sen</p>
-              <p className="text-[10px] text-[#717973] truncate">Student (Team Beta)</p>
-            </button>
-          </div>
-        </div>
-
         <div className="mt-6 text-center text-xs text-[#717973]">
           Don't have an account?{' '}
-          <Link to="/register" className="font-semibold text-[#012d1d] hover:underline">
-            Register now
-          </Link>
-        </div>
-      </div>
-    </div>
-  );
-}

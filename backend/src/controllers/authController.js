@@ -16,7 +16,7 @@ const register = asyncHandler(async (req, res) => {
 
   const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
   if (existing.rows.length) {
-    throw new AppError(409, 'Email already registered');
+    throw new AppError(409, 'An account with this email already exists. Try signing in instead.');
   }
 
   const hash = await bcrypt.hash(password, 10);

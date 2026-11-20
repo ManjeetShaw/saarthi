@@ -1,16 +1,31 @@
 const { body, param, query } = require('express-validator');
 
 const registerRules = [
-  body('name').trim().notEmpty().withMessage('Name is required').isLength({ max: 100 }),
-  body('email').trim().isEmail().withMessage('A valid email is required').normalizeEmail(),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').optional().isIn(['student', 'admin']).withMessage('role must be student or admin'),
-  body('student_id').optional({ checkFalsy: true }).isLength({ max: 50 }),
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Please enter your full name.')
+    .isLength({ max: 100 }).withMessage('Name must be 100 characters or fewer.'),
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Please enter your email address.').bail()
+    .isEmail().withMessage('Please enter a valid email address, like name@example.com.')
+    .normalizeEmail(),
+  body('password')
+    .notEmpty().withMessage('Please create a password.').bail()
+    .isLength({ min: 6 }).withMessage('Password must be at least 6 characters long.'),
+  body('role').optional().isIn(['student', 'admin']).withMessage('Account type must be student or admin.'),
+  body('student_id')
+    .optional({ checkFalsy: true })
+    .isLength({ max: 50 }).withMessage('Student ID must be 50 characters or fewer.'),
 ];
 
 const loginRules = [
-  body('email').trim().isEmail().withMessage('A valid email is required').normalizeEmail(),
-  body('password').notEmpty().withMessage('Password is required'),
+  body('email')
+    .trim()
+    .notEmpty().withMessage('Please enter your email address.').bail()
+    .isEmail().withMessage('Please enter a valid email address, like name@example.com.')
+    .normalizeEmail(),
+  body('password').notEmpty().withMessage('Please enter your password.'),
 ];
 
 const createGroupRules = [
