@@ -1,231 +1,143 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx';
-import Button from '../../components/ui/Button.jsx';
-import Badge from '../../components/ui/Badge.jsx';
-import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx';
+import AssignmentStatsRow from '../../components/assignments/AssignmentStatsRow.jsx';
 import CreateAssignmentModal from '../../components/assignments/CreateAssignmentModal.jsx';
-import {
-  getAllAssignmentsApi,
-  deleteAssignmentApi,
-} from '../../api/assignments.js';
-import { getAllGroupsApi } from '../../api/groups.js';
-import {
-  FileText,
-  Plus,
-  Edit2,
-  Trash2,
-  CheckSquare,
-  Clock,
-  ExternalLink,
-  Search,
-} from 'lucide-react';
-import { formatDate } from '../../utils/formatters.js';
+import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx';
+import Button from '../../components/ui/Button.jsx';
+import Select from '../../components/ui/Select.jsx';
+import EmptyState from '../../components/ui/EmptyState.jsx';
+import FormAlert from '../../components/ui/FormAlert.jsx';
+import { getAllAssignmentsApi, deleteAssignmentApi } from '../../api/assignments.js';
+import { getMyCoursesApi } from '../../api/courses.js';
+import { getErrorMessage } from '../../utils/apiErrors.js';
+import { Plus, Search, FileText } from 'lucide-react';
 
 export default function AdminAssignments() {
-  const navigate = useNavigate();
-
   const [assignments, setAssignments] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [courses, setCourses] = useState([]);
+  const [courseFilter, setCourseFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [assignmentToEdit, setAssignmentToEdit] = useState(null);
   const [assignmentToDelete, setAssignmentToDelete] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const fetchData = async () => {
+  const load = async () => {
     try {
-      setIsLoading(true);
-      const [assignList, groupList] = await Promise.all([
-        getAllAssignmentsApi(),
-        getAllGroupsApi(),
-      ]);
-      setAssignments(assignList || []);
-      setGroups(groupList || []);
+      setError('');
+      const [assignmentData, courseData] = await Promise.all([getAllAssignmentsApi(), getMyCoursesApi()]);
+      setAssignments(assignmentData || []);
+      setCourses(courseData || []);
     } catch (err) {
-      console.error(err);
+      setError(getErrorMessage(err, 'Could not load assignments.'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { load(); }, []);
+
+  const visible = useMemo(() => assignments.filter((a) => {
+    if (courseFilter !== 'all' && String(a.course_id) !== courseFilter) return false;
+    if (typeFilter !== 'all' && a.submission_type !== typeFilter) return false;
+    if (query && !a.title.toLowerCase().includes(query.toLowerCase())) return false;
+    return true;
+  }), [assignments, courseFilter, typeFilter, query]);
 
   const handleDelete = async () => {
-    if (!assignmentToDelete) return;
     setIsDeleting(true);
     try {
       await deleteAssignmentApi(assignmentToDelete.id);
       setAssignmentToDelete(null);
-      fetchData();
+      load();
     } catch (err) {
-      console.error(err);
-      alert('Failed to delete assignment');
+      setError(getErrorMessage(err, 'Could not delete the assignment.'));
+      setAssignmentToDelete(null);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const filteredAssignments = assignments.filter((a) =>
-    a.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
   return (
-    <DashboardLayout
-      title="Assignment Management"
-      subtitle="Create, configure, and monitor course assignments"
-    >
-      <div className="space-y-6 pb-12">
-        {/* Controls Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-6 border border-[#e1e3e4] soft-shadow">
-          <div>
-            <h3 className="font-bold text-lg text-[#191c1d]">Course Assignments</h3>
-            <p className="text-xs text-[#717973] mt-0.5">
-              Deploy coursework, configure target group scopes, and track completions.
-            </p>
-          </div>
+    <DashboardLayout title="Assignments" subtitle="Create, edit and monitor assignments across your courses">
+      <div className="space-y-5 pb-12">
+        <FormAlert message={error} />
 
-          <div className="flex items-center gap-3">
-            <div className="relative w-48 sm:w-64">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 flex-1">
+            <div className="relative sm:w-64">
               <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#717973]" />
               <input
-                type="text"
-                placeholder="Search assignments..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-[#e1e3e4] focus:border-[#012d1d] outline-none"
+                type="search"
+                aria-label="Search assignments"
+                placeholder="Search by title"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl bg-white border border-[#c1c8c2] focus:border-[#012d1d] focus:ring-2 focus:ring-[#012d1d]/10 outline-none transition-all"
               />
             </div>
-            <Button
-              variant="primary"
-              onClick={() => {
-                setAssignmentToEdit(null);
-                setIsCreateOpen(true);
-              }}
-              icon={Plus}
-            >
-              New Assignment
-            </Button>
+            <div className="sm:w-52">
+              <Select aria-label="Filter by course" value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)}>
+                <option value="all">All courses</option>
+                {courses.map((c) => <option key={c.id} value={c.id}>{c.code} · {c.title}</option>)}
+              </Select>
+            </div>
+            <div className="sm:w-40">
+              <Select aria-label="Filter by type" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+                <option value="all">All types</option>
+                <option value="individual">Individual</option>
+                <option value="group">Group</option>
+              </Select>
+            </div>
           </div>
+          <Button icon={Plus} onClick={() => { setAssignmentToEdit(null); setIsModalOpen(true); }} disabled={courses.length === 0}>
+            New assignment
+          </Button>
         </div>
 
-        {/* Assignments Table */}
-        <div className="bg-white rounded-3xl border border-[#e1e3e4] overflow-hidden soft-shadow">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#f8f9fa] border-b border-[#e1e3e4] text-[11px] font-semibold text-[#717973] uppercase tracking-wider">
-                  <th className="py-4 px-6">Assignment</th>
-                  <th className="py-4 px-6">Scope</th>
-                  <th className="py-4 px-6">Due Date</th>
-                  <th className="py-4 px-6">Resources</th>
-                  <th className="py-4 px-6 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f3f4f5] text-xs">
-                {filteredAssignments.map((assignment) => (
-                  <tr key={assignment.id} className="hover:bg-[#f8f9fa] transition-colors">
-                    <td className="py-4 px-6">
-                      <div className="flex items-start gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-[#012d1d]/10 text-[#012d1d] flex items-center justify-center shrink-0 mt-0.5">
-                          <FileText className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-sm text-[#191c1d]">{assignment.title}</p>
-                          <p className="text-[11px] text-[#717973] line-clamp-1 max-w-md mt-0.5">
-                            {assignment.description || 'No description provided'}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      <Badge variant={assignment.target_scope === 'all' ? 'primary' : 'neutral'}>
-                        {assignment.target_scope === 'all' ? 'All Groups' : 'Specific Groups'}
-                      </Badge>
-                    </td>
-                    <td className="py-4 px-6 text-[#717973]">
-                      <div className="flex items-center gap-1.5 font-medium text-[#191c1d]">
-                        <Clock className="w-3.5 h-3.5 text-[#FB8500]" />
-                        <span>{formatDate(assignment.due_date)}</span>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6">
-                      {assignment.onedrive_link ? (
-                        <a
-                          href={assignment.onedrive_link}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-[#4361EE] hover:underline font-semibold flex items-center gap-1"
-                        >
-                          <span>OneDrive</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ) : (
-                        <span className="text-[#717973]">—</span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            navigate(`/admin/submissions?assignmentId=${assignment.id}`)
-                          }
-                          icon={CheckSquare}
-                        >
-                          Submissions
-                        </Button>
-                        <button
-                          onClick={() => {
-                            setAssignmentToEdit(assignment);
-                            setIsCreateOpen(true);
-                          }}
-                          className="p-2 text-[#717973] hover:text-[#012d1d] hover:bg-[#f3f4f5] rounded-lg transition-colors"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setAssignmentToDelete(assignment)}
-                          className="p-2 text-[#717973] hover:text-[#D90429] hover:bg-[#D90429]/10 rounded-lg transition-colors"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {isLoading ? (
+          <p className="text-sm text-[#717973]">Loading assignments…</p>
+        ) : courses.length === 0 ? (
+          <EmptyState icon={FileText} title="Create a course first" message="Assignments belong to a course. Create one from the dashboard." />
+        ) : visible.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title={assignments.length === 0 ? 'No assignments yet' : 'No assignments match'}
+            message={assignments.length === 0 ? 'Create your first assignment to get started.' : 'Try clearing a filter.'}
+          />
+        ) : (
+          <div className="space-y-3">
+            {visible.map((a) => (
+              <AssignmentStatsRow
+                key={a.id}
+                assignment={a}
+                showCourse
+                onEdit={(row) => { setAssignmentToEdit(row); setIsModalOpen(true); }}
+                onDelete={setAssignmentToDelete}
+              />
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Create / Edit Assignment Modal */}
       <CreateAssignmentModal
-        isOpen={isCreateOpen}
-        onClose={() => {
-          setIsCreateOpen(false);
-          setAssignmentToEdit(null);
-        }}
-        allGroups={groups}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
         assignmentToEdit={assignmentToEdit}
-        onSaved={() => fetchData()}
+        courses={courses}
+        onSaved={load}
       />
-
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
-        isOpen={!!assignmentToDelete}
+        isOpen={Boolean(assignmentToDelete)}
         onClose={() => setAssignmentToDelete(null)}
         onConfirm={handleDelete}
-        title="Delete Assignment?"
-        message={`Are you sure you want to delete "${assignmentToDelete?.title}"? All submissions associated with this assignment will also be removed.`}
-        confirmText="Delete Assignment"
+        title="Delete assignment?"
+        message={`"${assignmentToDelete?.title}" and every acknowledgment recorded for it will be removed. This cannot be undone.`}
+        confirmText="Delete assignment"
         variant="danger"
         isLoading={isDeleting}
       />

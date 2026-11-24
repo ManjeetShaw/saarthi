@@ -1,25 +1,15 @@
 import api from './axios.js';
 
-// Final Confirm Submission (Student member)
-export const confirmSubmissionApi = async (assignmentId, groupId) => {
-  const response = await api.post(`/submissions/${assignmentId}/groups/${groupId}/confirm`);
-  return response.data;
-};
+// Student: acknowledge a submission. Individual: for yourself.
+// Group: leader only, and it applies to every member of the group.
+export const acknowledgeSubmissionApi = async (assignmentId) =>
+  (await api.post(`/submissions/${assignmentId}/acknowledge`)).data;
 
-// Get a group's submission progress (Any)
-export const getGroupProgressApi = async (groupId) => {
-  const response = await api.get(`/submissions/groups/${groupId}/progress`);
-  return response.data;
-};
-
-// Get per-group status for one assignment (Admin)
-export const getAssignmentSubmissionsApi = async (assignmentId) => {
-  const response = await api.get(`/submissions/${assignmentId}`);
-  return response.data;
-};
-
-// Get student-wise submission status for one assignment (Admin)
-export const getAssignmentStudentSubmissionsApi = async (assignmentId) => {
-  const response = await api.get(`/submissions/${assignmentId}/students`);
+// Professor: per-student and per-group status for one assignment.
+// status: 'all' | 'pending' | 'acknowledged' | 'overdue'
+export const getAssignmentTrackingApi = async (assignmentId, status = 'all') => {
+  const response = await api.get(`/submissions/${assignmentId}`, {
+    params: status && status !== 'all' ? { status } : {},
+  });
   return response.data;
 };

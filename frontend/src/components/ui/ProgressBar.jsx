@@ -45,7 +45,7 @@ export default function ProgressBar({
         }`}
       >
         <div
-          className={`h-full rounded-full transition-all duration-500 ease-out ${getColorClass()}`}
+          className={`progress-fill h-full rounded-full transition-all duration-500 ease-out ${getColorClass()}`}
           style={{ width: `${percentage}%` }}
         />
       </div>

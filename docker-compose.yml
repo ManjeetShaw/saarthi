@@ -1,4 +1,12 @@
-
+# Runs the whole stack locally:  docker compose up --build
+#   App      http://localhost:3000
+#   API      http://localhost:5000/api/health
+#   Postgres localhost:5433  (user postgres / password postgres / db joineazy)
+#
+# The database tables are created automatically on first start from
+# backend/src/db/schema.sql. `backend/.env` is optional here: the values the
+# containers need are set below. Remove the `db_data` volume
+# (`docker compose down -v`) to start from an empty database.
 services:
   db:
     image: postgres:16-alpine
@@ -21,7 +29,9 @@ services:
   backend:
     build: ./backend
     restart: unless-stopped
-    env_file: ./backend/.env
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       DB_HOST: db
       DB_PORT: 5432
@@ -29,6 +39,7 @@ services:
       DB_PASSWORD: postgres
       DB_NAME: joineazy
       DB_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
       FRONTEND_URL: http://localhost:3000
     ports:
       - "5000:5000"

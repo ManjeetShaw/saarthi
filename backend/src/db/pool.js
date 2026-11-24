@@ -33,15 +33,3 @@ pool.on('error', (err) => {
 });
 
 module.exports = pool;
-
-
-pool.query('SELECT NOW()')
-  .then((result) => {
-    console.log('PostgreSQL connected:', result.rows[0]);
-  })
-  .catch((error) => {
-    console.error('PostgreSQL connection failed:', {
-      message: error.message,
-      code: error.code,
-    });
-  });

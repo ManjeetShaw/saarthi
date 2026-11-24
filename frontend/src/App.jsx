@@ -9,6 +9,7 @@ import Register from './pages/Register.jsx';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard.jsx';
+import StudentCourseDetail from './pages/student/StudentCourseDetail.jsx';
 import StudentGroups from './pages/student/StudentGroups.jsx';
 import StudentGroupDetail from './pages/student/StudentGroupDetail.jsx';
 import StudentAssignments from './pages/student/StudentAssignments.jsx';
@@ -16,6 +17,7 @@ import StudentAssignmentDetail from './pages/student/StudentAssignmentDetail.jsx
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
+import AdminCourseDetail from './pages/admin/AdminCourseDetail.jsx';
 import AdminGroups from './pages/admin/AdminGroups.jsx';
 import AdminAssignments from './pages/admin/AdminAssignments.jsx';
 import AdminSubmissionTracking from './pages/admin/AdminSubmissionTracking.jsx';
@@ -63,6 +65,14 @@ export default function App() {
             }
           />
           <Route
+            path="/student/courses/:courseId"
+            element={
+              <ProtectedRoute allowedRole="student">
+                <StudentCourseDetail />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/student/groups"
             element={
               <ProtectedRoute allowedRole="student">
@@ -101,6 +111,14 @@ export default function App() {
             element={
               <ProtectedRoute allowedRole="admin">
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/courses/:courseId"
+            element={
+              <ProtectedRoute allowedRole="admin">
+                <AdminCourseDetail />
               </ProtectedRoute>
             }
           />

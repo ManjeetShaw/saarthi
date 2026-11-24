@@ -15,7 +15,9 @@ import {
   leaveGroupApi,
   deleteGroupApi,
 } from '../../api/groups.js';
-import { getGroupProgressApi } from '../../api/submissions.js';
+import { getMyAssignmentsApi } from '../../api/assignments.js';
+import { getErrorMessage } from '../../utils/apiErrors.js';
+import { courseAccent } from '../../utils/courseTheme.js';
 import {
   Users,
   UserPlus,
@@ -46,10 +48,9 @@ export default function StudentGroupDetail() {
   const fetchGroupDetails = async () => {
     try {
       setIsLoading(true);
-      const [allMyGroups, memberList, progressData] = await Promise.all([
+      const [allMyGroups, memberList] = await Promise.all([
         getMyGroupsApi(),
         getGroupMembersApi(groupId),
-        getGroupProgressApi(groupId).catch(() => null),
       ]);
 
       const currentGroup = (allMyGroups || []).find(
@@ -58,7 +59,14 @@ export default function StudentGroupDetail() {
 
       setGroup(currentGroup || { id: groupId, name: `Group #${groupId}` });
       setMembers(memberList || []);
-      setProgress(progressData);
+
+      // Progress = this course's group assignments the group has acknowledged
+      if (currentGroup?.course_id) {
+        const courseAssignments = await getMyAssignmentsApi(currentGroup.course_id).catch(() => []);
+        const groupOnes = courseAssignments.filter((x) => x.submission_type === 'group');
+        const done = groupOnes.filter((x) => x.is_acknowledged).length;
+        setProgress({ total: groupOnes.length, confirmed: done, percent: groupOnes.length ? Math.round((done / groupOnes.length) * 100) : 0 });
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -85,7 +93,7 @@ export default function StudentGroupDetail() {
       navigate('/student/groups');
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || 'Failed to leave group');
+      alert(getErrorMessage(err, 'Failed to leave group'));
     } finally {
       setIsActionLoading(false);
     }
@@ -99,7 +107,7 @@ export default function StudentGroupDetail() {
       navigate('/student/groups');
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || 'Failed to delete group');
+      alert(getErrorMessage(err, 'Failed to delete group'));
     } finally {
       setIsActionLoading(false);
     }
@@ -108,7 +116,7 @@ export default function StudentGroupDetail() {
   return (
     <DashboardLayout
       title={group?.name || 'Group Details'}
-      subtitle="Group Roster & Assignment Progress"
+      subtitle={group?.course_code ? `${group.course_code} · ${group.course_title}` : 'Group roster and progress'}
     >
       <div className="space-y-6 pb-12">
         {/* Back Link */}
@@ -143,6 +151,14 @@ export default function StudentGroupDetail() {
               <p className="text-xs text-[#717973] flex items-center gap-2 mt-1">
                 <Calendar className="w-3.5 h-3.5" />
                 Created {new Date(group?.created_at || Date.now()).toLocaleDateString()}
+                {group?.course_code && (
+                  <span
+                    className="ml-2 font-bold px-2 py-0.5 rounded-md"
+                    style={{ backgroundColor: courseAccent(group.course_id).soft, color: courseAccent(group.course_id).hex }}
+                  >
+                    {group.course_code}
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -181,15 +197,15 @@ export default function StudentGroupDetail() {
         </div>
 
         {/* Group Assignment Progress Card */}
-        {progress && (
+        {progress && progress.total > 0 && (
           <div className="bg-white rounded-2xl p-6 border border-[#e1e3e4] soft-shadow">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-bold text-base text-[#191c1d]">
-                  Group Assignment Progress
+                  Group assignment progress
                 </h3>
                 <p className="text-xs text-[#717973]">
-                  {progress.confirmed || 0} of {progress.total || 0} completed
+                  {progress.confirmed || 0} of {progress.total || 0} acknowledged by your leader
                 </p>
               </div>
               <span className="text-lg font-bold text-[#012d1d]">

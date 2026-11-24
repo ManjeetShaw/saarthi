@@ -3,16 +3,11 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import {
   LayoutGrid,
-  Home,
   Users,
   GraduationCap,
   FileText,
   BarChart3,
-  Gamepad2,
-  Settings,
-  HelpCircle,
   LogOut,
-  Sparkles,
   CheckSquare,
 } from 'lucide-react';
 import { getInitials } from '../../utils/formatters.js';
@@ -25,20 +20,16 @@ export default function Sidebar({ className = '' }) {
   const isAdmin = user?.role === 'admin';
 
   const studentLinks = [
-    { label: 'Home', path: '/student/dashboard', icon: Home },
     { label: 'Dashboard', path: '/student/dashboard', icon: LayoutGrid },
-    { label: 'Groups', path: '/student/groups', icon: Users },
     { label: 'Assignments', path: '/student/assignments', icon: FileText },
-    { label: 'Education', path: '/student/assignments', icon: GraduationCap },
-    { label: 'Games', path: '#', icon: Gamepad2, badge: 'Coming soon' },
+    { label: 'Groups', path: '/student/groups', icon: Users },
   ];
 
   const adminLinks = [
-    { label: 'Home', path: '/admin/dashboard', icon: Home },
     { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutGrid },
-    { label: 'Groups', path: '/admin/groups', icon: Users },
     { label: 'Assignments', path: '/admin/assignments', icon: FileText },
     { label: 'Submissions', path: '/admin/submissions', icon: CheckSquare },
+    { label: 'Groups', path: '/admin/groups', icon: Users },
     { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
   ];
 
@@ -63,7 +54,7 @@ export default function Sidebar({ className = '' }) {
             Joineazy
           </h1>
           <p className="text-[11px] font-medium text-[#717973] uppercase tracking-wider">
-            {isAdmin ? 'Admin Console' : 'Student Portal'}
+            {isAdmin ? 'Professor portal' : 'Student portal'}
           </p>
         </div>
       </div>
@@ -72,25 +63,6 @@ export default function Sidebar({ className = '' }) {
       <nav className="flex-1 flex flex-col gap-1.5 overflow-y-auto pr-1">
         {navLinks.map((item) => {
           const Icon = item.icon;
-          if (item.path === '#') {
-            return (
-              <div
-                key={item.label}
-                className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-[#717973] opacity-60 cursor-not-allowed text-sm"
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4" />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge && (
-                  <span className="text-[10px] bg-[#e1e3e4] px-1.5 py-0.5 rounded text-[#414844]">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-            );
-          }
-
           return (
             <NavLink
               key={item.label}
@@ -114,29 +86,7 @@ export default function Sidebar({ className = '' }) {
 
       {/* Footer Area */}
       <div className="mt-auto flex flex-col gap-3 pt-4 border-t border-[#e1e3e4]">
-        <button
-          onClick={() => alert('Joineazy Premium features are enabled for your institution!')}
-          className="w-full bg-[#012d1d] hover:bg-[#1b4332] text-white font-medium text-xs py-2.5 px-3.5 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#ffb702]" />
-          <span>Get premium</span>
-        </button>
-
         <div className="flex flex-col gap-0.5">
-          <button
-            onClick={() => alert('Settings & Preference options')}
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs text-[#414844] hover:bg-[#f3f4f5] transition-colors w-full text-left"
-          >
-            <Settings className="w-3.5 h-3.5 text-[#717973]" />
-            <span>Settings</span>
-          </button>
-          <button
-            onClick={() => alert('Joineazy Help & Support: contact support@joineazy.dev')}
-            className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs text-[#414844] hover:bg-[#f3f4f5] transition-colors w-full text-left"
-          >
-            <HelpCircle className="w-3.5 h-3.5 text-[#717973]" />
-            <span>Help</span>
-          </button>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-3.5 py-2 rounded-xl text-xs text-[#D90429] hover:bg-[#D90429]/10 transition-colors w-full text-left font-medium"
@@ -156,8 +106,8 @@ export default function Sidebar({ className = '' }) {
               <span className="text-xs font-bold text-[#191c1d] truncate">
                 {user.name}
               </span>
-              <span className="text-[11px] text-[#717973] capitalize truncate">
-                {user.role} {user.student_id ? `• ${user.student_id}` : ''}
+              <span className="text-[11px] text-[#717973] truncate">
+                {user.role === 'admin' ? 'Professor' : 'Student'} {user.student_id ? `• ${user.student_id}` : ''}
               </span>
             </div>
           </div>

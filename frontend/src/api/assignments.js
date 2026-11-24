@@ -1,31 +1,20 @@
 import api from './axios.js';
 
-// Get assignments for logged in student
-export const getMyAssignmentsApi = async () => {
-  const response = await api.get('/assignments/mine');
+// Student: assignments across enrolled courses (optionally one course)
+export const getMyAssignmentsApi = async (courseId) => {
+  const response = await api.get('/assignments/mine', { params: courseId ? { course_id: courseId } : {} });
   return response.data;
 };
 
-// Get all assignments (Admin)
-export const getAllAssignmentsApi = async () => {
-  const response = await api.get('/assignments');
+// One assignment (student: own status; professor: class-wide stats)
+export const getAssignmentApi = async (id) => (await api.get(`/assignments/${id}`)).data;
+
+// Professor: assignments in the courses they teach, with live stats
+export const getAllAssignmentsApi = async (courseId) => {
+  const response = await api.get('/assignments', { params: courseId ? { course_id: courseId } : {} });
   return response.data;
 };
 
-// Create assignment (Admin)
-export const createAssignmentApi = async (assignmentData) => {
-  const response = await api.post('/assignments', assignmentData);
-  return response.data;
-};
-
-// Edit assignment (Admin)
-export const updateAssignmentApi = async (id, assignmentData) => {
-  const response = await api.put(`/assignments/${id}`, assignmentData);
-  return response.data;
-};
-
-// Delete assignment (Admin)
-export const deleteAssignmentApi = async (id) => {
-  const response = await api.delete(`/assignments/${id}`);
-  return response.data;
-};
+export const createAssignmentApi = async (data) => (await api.post('/assignments', data)).data;
+export const updateAssignmentApi = async (id, data) => (await api.put(`/assignments/${id}`, data)).data;
+export const deleteAssignmentApi = async (id) => (await api.delete(`/assignments/${id}`)).data;

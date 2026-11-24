@@ -167,7 +167,7 @@ export default function Register() {
                     : 'text-[#717973] hover:text-[#191c1d]'
                 }`}
               >
-                Professor / Admin
+                Professor
               </button>
             </div>
           </div>

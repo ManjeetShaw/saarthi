@@ -1,139 +1,102 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Badge from '../../components/ui/Badge.jsx';
+import EmptyState from '../../components/ui/EmptyState.jsx';
+import CardSkeleton from '../../components/ui/CardSkeleton.jsx';
+import FormAlert from '../../components/ui/FormAlert.jsx';
 import CreateGroupModal from '../../components/groups/CreateGroupModal.jsx';
 import { getMyGroupsApi } from '../../api/groups.js';
-import { Users, Plus, Crown, ArrowRight, ShieldCheck, UserCheck } from 'lucide-react';
-import { getInitials } from '../../utils/formatters.js';
+import { getMyCoursesApi } from '../../api/courses.js';
+import { getErrorMessage } from '../../utils/apiErrors.js';
+import { courseAccent } from '../../utils/courseTheme.js';
+import { Users, Plus, Crown, ArrowRight } from 'lucide-react';
 
 export default function StudentGroups() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-
   const [groups, setGroups] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const fetchGroups = async () => {
+  const load = async () => {
     try {
-      setIsLoading(true);
-      const data = await getMyGroupsApi();
-      setGroups(data || []);
+      setError('');
+      const [groupData, courseData] = await Promise.all([getMyGroupsApi(), getMyCoursesApi()]);
+      setGroups(groupData || []);
+      setCourses(courseData || []);
     } catch (err) {
-      console.error(err);
+      setError(getErrorMessage(err, 'Could not load your groups.'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchGroups();
-  }, [user?.id]);
+  useEffect(() => { load(); }, [user?.id]);
+
+  // A student can be in one group per course, so only offer courses without one.
+  const coursesWithoutGroup = courses.filter((c) => !groups.some((g) => g.course_id === c.id));
 
   return (
-    <DashboardLayout
-      title="My Study Groups"
-      subtitle="Collaborate with your student cohort"
-    >
+    <DashboardLayout title="My groups" subtitle="One group per course, for group assignments">
       <div className="space-y-6 pb-12">
-        {/* Header Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-6 border border-[#e1e3e4] soft-shadow">
-          <div>
-            <h3 className="font-bold text-lg text-[#191c1d]">Active Cohorts & Teams</h3>
-            <p className="text-xs text-[#717973] mt-0.5">
-              Manage your project groups, team members, and group assignment deliverables.
-            </p>
-          </div>
-          <Button
-            variant="primary"
-            onClick={() => setIsCreateOpen(true)}
-            icon={Plus}
-          >
-            Create New Group
+        <FormAlert message={error} />
+
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-[#717973]">{groups.length} {groups.length === 1 ? 'group' : 'groups'}</p>
+          <Button icon={Plus} onClick={() => setIsCreateOpen(true)} disabled={courses.length > 0 && coursesWithoutGroup.length === 0}>
+            Create a group
           </Button>
         </div>
 
-        {/* Group Cards Grid */}
-        {groups.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-[#e1e3e4] max-w-md mx-auto my-8">
-            <div className="w-16 h-16 rounded-2xl bg-[#012d1d]/10 text-[#012d1d] flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8" />
-            </div>
-            <h3 className="font-bold text-lg text-[#191c1d] mb-1">No groups yet</h3>
-            <p className="text-xs text-[#717973] mb-6 leading-relaxed">
-              You aren't a member of any study group. Create a group to collaborate with your classmates or ask a group leader to add you by email.
-            </p>
-            <Button
-              variant="primary"
-              onClick={() => setIsCreateOpen(true)}
-              icon={Plus}
-            >
-              Create Your First Group
-            </Button>
-          </div>
+        {isLoading ? (
+          <CardSkeleton count={2} />
+        ) : groups.length === 0 ? (
+          <EmptyState
+            icon={Users}
+            title="You are not in a group yet"
+            message={courses.length === 0
+              ? 'Enroll in a course first, then create a group for it or ask a classmate to add you.'
+              : 'Create a group for one of your courses, or ask a classmate to add you to theirs.'}
+            action={courses.length > 0 ? <Button icon={Plus} onClick={() => setIsCreateOpen(true)}>Create a group</Button> : null}
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {groups.map((group) => {
-              const isLeader = group.leader_id === user?.id;
-
+              const accent = courseAccent(group.course_id);
               return (
-                <div
+                <Link
                   key={group.id}
-                  className="bg-white rounded-3xl p-6 soft-shadow hover-lift border border-[#e1e3e4] flex flex-col justify-between"
+                  to={`/student/groups/${group.id}`}
+                  className="group block bg-white rounded-2xl border border-[#e1e3e4] soft-shadow hover-lift overflow-hidden focus:outline-none focus-visible:ring-2 focus-visible:ring-[#012d1d]"
                 >
-                  <div>
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="w-12 h-12 rounded-2xl bg-[#012d1d]/10 text-[#012d1d] flex items-center justify-center font-bold text-lg">
-                        {group.name?.charAt(0) || 'G'}
-                      </div>
-                      {isLeader ? (
-                        <Badge variant="warning" dot>
-                          <Crown className="w-3 h-3 text-[#FB8500] inline mr-1" />
-                          Group Leader
-                        </Badge>
+                  <div className="h-1.5" style={{ backgroundColor: accent.hex }} />
+                  <div className="p-5">
+                    <div className="flex items-start justify-between gap-3">
+                      {group.course_code && (
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg" style={{ backgroundColor: accent.soft, color: accent.hex }}>
+                          {group.course_code}
+                        </span>
+                      )}
+                      {group.is_leader ? (
+                        <Badge variant="warning"><Crown className="w-3 h-3" /> Leader</Badge>
                       ) : (
                         <Badge variant="neutral">Member</Badge>
                       )}
                     </div>
-
-                    <h4 className="font-bold text-base text-[#191c1d] mb-1">
-                      {group.name}
-                    </h4>
-                    <p className="text-xs text-[#717973] mb-4">
-                      {isLeader ? 'You are the leader' : 'You are a member of this group'}
+                    <h3 className="font-bold text-lg text-[#191c1d] mt-3">{group.name}</h3>
+                    <p className="text-xs text-[#717973] mt-1">
+                      {group.course_title} · {group.member_count} {group.member_count === 1 ? 'member' : 'members'}
                     </p>
-
-                    <div className="bg-[#f8f9fa] rounded-2xl p-3.5 border border-[#e1e3e4]/60 space-y-2 mb-4">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-[#717973]">Members</span>
-                        <span className="font-bold text-[#191c1d]">
-                          {group.member_count || 1} Students
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span className="text-[#717973]">Created</span>
-                        <span className="text-[#414844]">
-                          {new Date(group.created_at || Date.now()).toLocaleDateString()}
-                        </span>
-                      </div>
+                    {!group.is_leader && <p className="text-xs text-[#717973] mt-1">Leader: {group.leader_name}</p>}
+                    <div className="flex items-center justify-end mt-4 text-sm font-semibold text-[#012d1d]">
+                      Open <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-0.5" />
                     </div>
                   </div>
-
-                  <div className="pt-2 border-t border-[#f3f4f5]">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/student/groups/${group.id}`)}
-                      className="w-full flex items-center justify-between"
-                    >
-                      <span>Manage & Members</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -143,7 +106,8 @@ export default function StudentGroups() {
       <CreateGroupModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        onGroupCreated={() => fetchGroups()}
+        courses={coursesWithoutGroup}
+        onGroupCreated={load}
       />
     </DashboardLayout>
   );

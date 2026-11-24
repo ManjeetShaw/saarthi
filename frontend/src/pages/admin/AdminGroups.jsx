@@ -62,15 +62,15 @@ export default function AdminGroups() {
 
   return (
     <DashboardLayout
-      title="Student Groups Directory"
-      subtitle="Overview of all student cohorts and leaders"
+      title="Student groups"
+      subtitle="Groups across the courses you teach"
     >
       <div className="space-y-6 pb-12">
         {/* Controls Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-6 border border-[#e1e3e4] soft-shadow">
           <div>
             <h3 className="font-bold text-lg text-[#191c1d]">Cohort Roster</h3>
-            <p className="text-xs text-[#717973] mt-0.5">{groups.length} groups registered</p>
+            <p className="text-xs text-[#717973] mt-0.5">{groups.length} groups</p>
           </div>
           <div className="relative w-full sm:w-72">
             <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#717973]" />
@@ -108,6 +108,7 @@ export default function AdminGroups() {
                     <Badge variant="neutral">{group.member_count || 0} members</Badge>
                   </div>
 
+                  {group.course_code && <p className="text-[11px] font-bold text-[#717973] mb-1">{group.course_code}</p>}
                   <h4 className="font-bold text-base text-[#191c1d] mb-1">{group.name}</h4>
                   <div className="flex items-center gap-1.5 text-xs text-[#717973] mb-4">
                     <Crown className="w-3.5 h-3.5 text-[#FB8500]" />
@@ -116,7 +117,7 @@ export default function AdminGroups() {
 
                   <div className="mb-4">
                     <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-[#717973]">Submission Completion</span>
+                      <span className="text-[#717973]">Group assignments acknowledged</span>
                       <span className="font-bold text-[#191c1d]">{completion}%</span>
                     </div>
                     <ProgressBar value={completion} color="auto" size="sm" />

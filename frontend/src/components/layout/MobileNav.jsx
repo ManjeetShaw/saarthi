@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext.jsx';
-import { LayoutGrid, Users, FileText, BarChart3, Home } from 'lucide-react';
+import { LayoutGrid, Users, FileText, BarChart3, CheckSquare } from 'lucide-react';
 
 export default function MobileNav() {
   const { user } = useAuth();
@@ -9,14 +9,14 @@ export default function MobileNav() {
 
   const links = isStudent
     ? [
-        { label: 'Dashboard', path: '/student/dashboard', icon: LayoutGrid },
-        { label: 'Groups', path: '/student/groups', icon: Users },
+        { label: 'Courses', path: '/student/dashboard', icon: LayoutGrid },
         { label: 'Tasks', path: '/student/assignments', icon: FileText },
+        { label: 'Groups', path: '/student/groups', icon: Users },
       ]
     : [
-        { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutGrid },
-        { label: 'Groups', path: '/admin/groups', icon: Users },
-        { label: 'Assignments', path: '/admin/assignments', icon: FileText },
+        { label: 'Courses', path: '/admin/dashboard', icon: LayoutGrid },
+        { label: 'Tasks', path: '/admin/assignments', icon: FileText },
+        { label: 'Track', path: '/admin/submissions', icon: CheckSquare },
         { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
       ];
 

@@ -6,9 +6,9 @@ export const getMyGroupsApi = async () => {
   return response.data;
 };
 
-// Get all groups (Admin)
-export const getAllGroupsApi = async () => {
-  const response = await api.get('/groups');
+// Get groups in the courses a professor teaches (optionally one course)
+export const getAllGroupsApi = async (courseId) => {
+  const response = await api.get('/groups', { params: courseId ? { course_id: courseId } : {} });
   return response.data;
 };
 

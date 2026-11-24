@@ -5,7 +5,7 @@ const {
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { handleValidation } = require('../middleware/validate');
 const {
-  createGroupRules, addMemberRules, groupIdParamRules, memberIdParamRules, paginationRules,
+  createGroupRules, addMemberRules, groupIdParamRules, memberIdParamRules, paginationRules, courseQueryRules,
 } = require('../middleware/validators');
 const router = express.Router();
 
@@ -16,6 +16,6 @@ router.post('/:groupId/leave', requireAuth, requireRole('student'), groupIdParam
 router.delete('/:groupId', requireAuth, requireRole('student'), groupIdParamRules, handleValidation, deleteGroup);
 router.get('/mine', requireAuth, requireRole('student'), myGroups);
 router.get('/:groupId/members', requireAuth, groupIdParamRules, handleValidation, groupMembers);
-router.get('/', requireAuth, requireRole('admin'), paginationRules, handleValidation, allGroups);
+router.get('/', requireAuth, requireRole('admin'), paginationRules, courseQueryRules, handleValidation, allGroups);
 
 module.exports = router;

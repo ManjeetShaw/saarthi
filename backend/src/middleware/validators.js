@@ -29,7 +29,11 @@ const loginRules = [
 ];
 
 const createGroupRules = [
-  body('name').trim().notEmpty().withMessage('Group name is required').isLength({ max: 100 }),
+  body('name')
+    .trim()
+    .notEmpty().withMessage('Please enter a group name.')
+    .isLength({ max: 100 }).withMessage('Group name must be 100 characters or fewer.'),
+  body('course_id').isInt({ min: 1 }).withMessage('Please choose the course this group is for.'),
 ];
 
 const addMemberRules = [
@@ -59,30 +63,105 @@ const assignmentIdParamRules = [
   param('id').isInt().withMessage('Invalid assignment id'),
 ];
 
-const submissionParamRules = [
-  param('assignmentId').isInt().withMessage('Invalid assignment id'),
-  param('groupId').isInt().withMessage('Invalid group id'),
-];
-
 const assignmentIdOnlyParamRules = [
   param('assignmentId').isInt().withMessage('Invalid assignment id'),
 ];
 
+const SUBMISSION_TYPES = ['individual', 'group'];
+
 const createAssignmentRules = [
-  body('title').trim().notEmpty().withMessage('Title is required').isLength({ max: 150 }),
-  body('description').optional({ checkFalsy: true }).isLength({ max: 5000 }),
-  body('due_date').isISO8601().withMessage('due_date must be a valid date'),
-  body('onedrive_link').trim().isURL().withMessage('onedrive_link must be a valid URL'),
-  body('target_scope').optional().isIn(['all', 'groups']),
-  body('group_ids').optional().isArray().withMessage('group_ids must be an array'),
-  body('group_ids.*').optional().isInt().withMessage('group_ids must contain valid ids'),
+  body('course_id').isInt({ min: 1 }).withMessage('Please choose a course for this assignment.'),
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Please enter an assignment title.')
+    .isLength({ max: 150 }).withMessage('Title must be 150 characters or fewer.'),
+  body('description').optional({ checkFalsy: true }).isLength({ max: 5000 })
+    .withMessage('Description must be 5000 characters or fewer.'),
+  body('due_date').isISO8601().withMessage('Please choose a valid due date and time.'),
+  body('onedrive_link').trim().isURL({ require_protocol: true })
+    .withMessage('Please enter a full link starting with https://'),
+  body('submission_type').optional().isIn(SUBMISSION_TYPES)
+    .withMessage('Submission type must be individual or group.'),
 ];
 
 const updateAssignmentRules = [
   param('id').isInt().withMessage('Invalid assignment id'),
-  body('title').optional().trim().isLength({ max: 150 }),
-  body('due_date').optional().isISO8601(),
-  body('onedrive_link').optional().trim().isURL(),
+  body('title').optional().trim().notEmpty().withMessage('Title cannot be empty.')
+    .isLength({ max: 150 }).withMessage('Title must be 150 characters or fewer.'),
+  body('description').optional({ checkFalsy: true }).isLength({ max: 5000 })
+    .withMessage('Description must be 5000 characters or fewer.'),
+  body('due_date').optional().isISO8601().withMessage('Please choose a valid due date and time.'),
+  body('onedrive_link').optional().trim().isURL({ require_protocol: true })
+    .withMessage('Please enter a full link starting with https://'),
+  body('submission_type').optional().isIn(SUBMISSION_TYPES)
+    .withMessage('Submission type must be individual or group.'),
+];
+
+// ---- Courses -------------------------------------------------------------
+const courseCodeRule = (field = 'code') =>
+  body(field)
+    .trim()
+    .notEmpty().withMessage('Please enter a course code.').bail()
+    .matches(/^[A-Za-z0-9][A-Za-z0-9 _-]{1,19}$/)
+    .withMessage('Course code must be 2-20 letters, numbers, dashes or spaces (for example CS301).')
+    .customSanitizer((v) => v.toUpperCase());
+
+const createCourseRules = [
+  courseCodeRule(),
+  body('title')
+    .trim()
+    .notEmpty().withMessage('Please enter a course title.')
+    .isLength({ max: 150 }).withMessage('Course title must be 150 characters or fewer.'),
+  body('description').optional({ checkFalsy: true }).isLength({ max: 2000 })
+    .withMessage('Description must be 2000 characters or fewer.'),
+];
+
+const updateCourseRules = [
+  param('id').isInt().withMessage('Invalid course id'),
+  body('code').optional().trim().matches(/^[A-Za-z0-9][A-Za-z0-9 _-]{1,19}$/)
+    .withMessage('Course code must be 2-20 letters, numbers, dashes or spaces (for example CS301).')
+    .customSanitizer((v) => v.toUpperCase()),
+  body('title').optional().trim().notEmpty().withMessage('Course title cannot be empty.')
+    .isLength({ max: 150 }).withMessage('Course title must be 150 characters or fewer.'),
+  body('description').optional({ checkFalsy: true }).isLength({ max: 2000 })
+    .withMessage('Description must be 2000 characters or fewer.'),
+];
+
+const enrollRules = [
+  body('code').trim().notEmpty().withMessage('Please enter the course code your professor shared.')
+    .customSanitizer((v) => v.toUpperCase()),
+];
+
+const courseIdParamRules = [
+  param('id').isInt().withMessage('Invalid course id'),
+];
+
+const courseStudentRules = [
+  param('id').isInt().withMessage('Invalid course id'),
+  body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email address.'),
+  body('student_id').optional({ checkFalsy: true }).isLength({ max: 50 }),
+  body().custom((value) => {
+    if (!value.email && !value.student_id) {
+      throw new Error('Enter the student email or student ID.');
+    }
+    return true;
+  }),
+];
+
+const courseStudentParamRules = [
+  param('id').isInt().withMessage('Invalid course id'),
+  param('studentId').isInt().withMessage('Invalid student id'),
+];
+
+// ---- Submissions ---------------------------------------------------------
+const trackingRules = [
+  param('assignmentId').isInt().withMessage('Invalid assignment id'),
+  query('status').optional().isIn(['all', 'pending', 'acknowledged', 'overdue'])
+    .withMessage('status must be all, pending, acknowledged or overdue'),
+];
+
+const courseQueryRules = [
+  query('course_id').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('course_id must be a number'),
 ];
 
 // Shared pagination query validation for list endpoints.
@@ -94,6 +173,8 @@ const paginationRules = [
 module.exports = {
   registerRules, loginRules, createGroupRules, addMemberRules,
   groupIdParamRules, memberIdParamRules, assignmentIdParamRules,
-  submissionParamRules, assignmentIdOnlyParamRules,
+  assignmentIdOnlyParamRules,
   createAssignmentRules, updateAssignmentRules, paginationRules,
+  createCourseRules, updateCourseRules, enrollRules, courseIdParamRules,
+  courseStudentRules, courseStudentParamRules, trackingRules, courseQueryRules,
 };

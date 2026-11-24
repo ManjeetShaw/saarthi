@@ -9,6 +9,7 @@ const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const asyncHandler = require('./utils/asyncHandler');
 
 const authRoutes = require('./routes/authRoutes');
+const courseRoutes = require('./routes/courseRoutes');
 const groupRoutes = require('./routes/groupRoutes');
 const assignmentRoutes = require('./routes/assignmentRoutes');
 const submissionRoutes = require('./routes/submissionRoutes');
@@ -57,6 +58,7 @@ app.get('/api/health', asyncHandler(async (req, res) => {
 app.use('/api', apiLimiter);
 
 app.use('/api/auth', authRoutes);
+app.use('/api/courses', courseRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/submissions', submissionRoutes);

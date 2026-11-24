@@ -1,267 +1,130 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx';
 import StatCard from '../../components/analytics/StatCard.jsx';
-import CompletionBarChart from '../../components/analytics/CompletionBarChart.jsx';
-import GroupPerformanceBars from '../../components/analytics/GroupPerformanceBars.jsx';
+import CourseCard from '../../components/courses/CourseCard.jsx';
+import CourseFormModal from '../../components/courses/CourseFormModal.jsx';
 import Button from '../../components/ui/Button.jsx';
-import CreateAssignmentModal from '../../components/assignments/CreateAssignmentModal.jsx';
-import { getOverviewAnalyticsApi } from '../../api/analytics.js';
+import EmptyState from '../../components/ui/EmptyState.jsx';
+import CardSkeleton from '../../components/ui/CardSkeleton.jsx';
+import FormAlert from '../../components/ui/FormAlert.jsx';
+import TypeBadge from '../../components/ui/TypeBadge.jsx';
+import { getMyCoursesApi } from '../../api/courses.js';
 import { getAllAssignmentsApi } from '../../api/assignments.js';
-import { getAllGroupsApi } from '../../api/groups.js';
-import {
-  Users,
-  GraduationCap,
-  FilePlus,
-  TrendingUp,
-  Plus,
-  ArrowRight,
-  CheckCircle2,
-} from 'lucide-react';
+import { getErrorMessage } from '../../utils/apiErrors.js';
+import { percentOf } from '../../utils/assignmentStatus.js';
+import { formatDate } from '../../utils/formatters.js';
+import { BookOpen, GraduationCap, FileText, TrendingUp, Plus, ChevronRight } from 'lucide-react';
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
-
-  const [analytics, setAnalytics] = useState(null);
+  const [courses, setCourses] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [isCreateAssignmentOpen, setIsCreateAssignmentOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [isCourseOpen, setIsCourseOpen] = useState(false);
 
-  const fetchData = async () => {
+  const load = async () => {
     try {
-      setIsLoading(true);
-      const [statsData, assignData, groupData] = await Promise.all([
-        getOverviewAnalyticsApi(),
-        getAllAssignmentsApi(),
-        getAllGroupsApi(),
-      ]);
-      setAnalytics(statsData);
-      setAssignments(assignData || []);
-      setGroups(groupData || []);
+      setError('');
+      const [courseData, assignmentData] = await Promise.all([getMyCoursesApi(), getAllAssignmentsApi()]);
+      setCourses(courseData || []);
+      setAssignments(assignmentData || []);
     } catch (err) {
-      console.error(err);
+      setError(getErrorMessage(err, 'Could not load your courses.'));
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  const totals = analytics?.totals || {};
-  const overallCompletion = totals.total_submissions
-    ? Math.round((totals.confirmed_submissions / totals.total_submissions) * 100)
-    : 0;
+  const totals = useMemo(() => {
+    const slots = courses.reduce((n, c) => n + c.total_slots, 0);
+    const acknowledged = courses.reduce((n, c) => n + c.acknowledged_count, 0);
+    return {
+      students: courses.reduce((n, c) => n + c.student_count, 0),
+      assignments: courses.reduce((n, c) => n + c.assignment_count, 0),
+      rate: percentOf(acknowledged, slots),
+      acknowledged,
+      slots,
+    };
+  }, [courses]);
 
-  // Build a lookup of assignment id -> completion % from the per-assignment
-  // analytics, so the "Active Coursework" table and the bar chart share the
-  // same real numbers.
-  const completionByAssignmentId = {};
-  (analytics?.perAssignment || []).forEach((a) => {
-    completionByAssignmentId[a.id] = a.target_groups
-      ? Math.round((a.confirmed_groups / a.target_groups) * 100)
-      : 0;
-  });
-
-  const completionChartData = (analytics?.perAssignment || []).map((a) => ({
-    shortTitle: a.title.length > 12 ? `${a.title.slice(0, 12)}…` : a.title,
-    title: a.title,
-    completion: a.target_groups ? Math.round((a.confirmed_groups / a.target_groups) * 100) : 0,
-  }));
-
-  const groupPerformanceData = (analytics?.perGroup || []).map((g) => ({
-    name: g.name,
-    completion: g.total ? Math.round((g.confirmed / g.total) * 100) : 0,
-  }));
+  // Where a nudge would help most: assignments with overdue work first, then
+  // the ones with the most students still pending.
+  const needsAttention = useMemo(
+    () => assignments
+      .filter((a) => a.overdue_count > 0 || (a.pending_count > 0 && new Date(a.due_date) - Date.now() < 3 * 86400000))
+      .sort((x, y) => y.overdue_count - x.overdue_count || y.pending_count - x.pending_count)
+      .slice(0, 5),
+    [assignments]
+  );
 
   return (
-    <DashboardLayout
-      title="Admin Dashboard"
-      subtitle="Institutional Analytics & Assignment Operations"
-    >
-      <div className="space-y-6 pb-12">
-        {/* Quick Action Header */}
-        <div className="bg-white rounded-3xl p-6 border border-[#e1e3e4] soft-shadow flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <h3 className="font-bold text-lg text-[#191c1d]">Course Overview & Controls</h3>
-            <p className="text-xs text-[#717973] mt-0.5">
-              Deploy assignments to groups, monitor real-time submissions, and track class progress.
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="primary"
-              onClick={() => setIsCreateAssignmentOpen(true)}
-              icon={Plus}
-            >
-              New Assignment
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin/submissions')}
-              icon={CheckCircle2}
-            >
-              Track Submissions
-            </Button>
-          </div>
+    <DashboardLayout title="Teaching overview" subtitle="Your courses and how students are progressing">
+      <div className="space-y-8 pb-12">
+        <FormAlert message={error} />
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard title="Courses" value={courses.length} subtitle="You are teaching" icon={BookOpen} />
+          <StatCard title="Students" value={totals.students} subtitle="Enrolled across courses" icon={GraduationCap} variant="gold" />
+          <StatCard title="Assignments" value={totals.assignments} subtitle="Posted so far" icon={FileText} variant="accent" />
+          <StatCard title="Acknowledged" value={`${totals.rate}%`} subtitle={`${totals.acknowledged} of ${totals.slots} submissions`} icon={TrendingUp} variant="primary" />
         </div>
 
-        {/* 4 Bento Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            title="Total Students"
-            value={totals.total_students ?? 0}
-            subtitle="Enrolled across all groups"
-            icon={GraduationCap}
-          />
-          <StatCard
-            title="Active Groups"
-            value={totals.total_groups ?? groups.length}
-            subtitle="Study teams & project pods"
-            icon={Users}
-            variant="gold"
-          />
-          <StatCard
-            title="Assignments"
-            value={totals.total_assignments ?? assignments.length}
-            subtitle="Coursework items deployed"
-            icon={FilePlus}
-            variant="accent"
-          />
-          <StatCard
-            title="Class Completion"
-            value={`${overallCompletion}%`}
-            subtitle={`${totals.confirmed_submissions ?? 0} of ${totals.total_submissions ?? 0} submissions confirmed`}
-            icon={TrendingUp}
-            variant="primary"
-          />
-        </div>
-
-        {/* Charts Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Assignment Completion Chart (2 cols) */}
-          <div className="lg:col-span-2 bg-white rounded-3xl p-6 border border-[#e1e3e4] soft-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-bold text-base text-[#191c1d]">
-                  Assignment Completion Rate
-                </h3>
-                <p className="text-xs text-[#717973]">
-                  Percentage of student groups who confirmed submissions
-                </p>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/admin/assignments')}
-              >
-                View all
-              </Button>
-            </div>
-
-            <CompletionBarChart data={completionChartData} />
-          </div>
-
-          {/* Group Performance (1 col) */}
-          <div className="bg-white rounded-3xl p-6 border border-[#e1e3e4] soft-shadow flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-bold text-base text-[#191c1d]">
-                  Group Performance
-                </h3>
-                <span className="text-xs font-bold text-[#012d1d] bg-[#012d1d]/10 px-2 py-0.5 rounded-full">
-                  Rankings
-                </span>
-              </div>
-
-              <GroupPerformanceBars groups={groupPerformanceData} />
-            </div>
-
-            <div className="pt-4 mt-6 border-t border-[#f3f4f5]">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigate('/admin/groups')}
-                className="w-full flex items-center justify-between"
-              >
-                <span>Manage All Groups</span>
-                <ArrowRight className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Submissions & Assignments Table */}
-        <div className="bg-white rounded-3xl p-6 border border-[#e1e3e4] soft-shadow">
+        <section aria-labelledby="teaching-courses">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-base text-[#191c1d]">Active Coursework</h3>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => setIsCreateAssignmentOpen(true)}
-              icon={Plus}
-            >
-              Add Assignment
-            </Button>
+            <h2 id="teaching-courses" className="font-bold text-lg text-[#191c1d]">Your courses</h2>
+            <Button size="sm" icon={Plus} onClick={() => setIsCourseOpen(true)}>New course</Button>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-[#f8f9fa] border-b border-[#e1e3e4] text-[11px] font-semibold text-[#717973] uppercase tracking-wider">
-                  <th className="py-3 px-4">Title</th>
-                  <th className="py-3 px-4">Target Scope</th>
-                  <th className="py-3 px-4">Due Date</th>
-                  <th className="py-3 px-4">Completion</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f3f4f5] text-xs">
-                {assignments.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#f8f9fa]">
-                    <td className="py-3.5 px-4 font-bold text-[#191c1d]">
-                      {item.title}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <span className="bg-[#e1e3e4] text-[#414844] font-semibold px-2 py-0.5 rounded-full capitalize">
-                        {item.target_scope === 'all' ? 'All Groups' : 'Specific Groups'}
-                      </span>
-                    </td>
-                    <td className="py-3.5 px-4 text-[#717973]">
-                      {new Date(item.due_date).toLocaleDateString()}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-[#191c1d]">
-                          {completionByAssignmentId[item.id] ?? 0}%
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => navigate(`/admin/submissions?assignmentId=${item.id}`)}
-                      >
-                        Submissions
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          {isLoading ? (
+            <CardSkeleton />
+          ) : courses.length === 0 ? (
+            <EmptyState
+              icon={BookOpen}
+              title="You have not created a course yet"
+              message="Create a course, then share its code so students can enroll."
+              action={<Button icon={Plus} onClick={() => setIsCourseOpen(true)}>Create your first course</Button>}
+            />
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+              {courses.map((c) => (
+                <CourseCard key={c.id} course={c} variant="professor" to={`/admin/courses/${c.id}`} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {needsAttention.length > 0 && (
+          <section aria-labelledby="needs-attention">
+            <h2 id="needs-attention" className="font-bold text-lg text-[#191c1d] mb-4">Needs attention</h2>
+            <ul className="bg-white rounded-2xl border border-[#e1e3e4] soft-shadow divide-y divide-[#f3f4f5] overflow-hidden">
+              {needsAttention.map((a) => (
+                <li key={a.id}>
+                  <Link
+                    to={`/admin/submissions?assignment=${a.id}`}
+                    className="flex items-center gap-4 px-5 py-4 hover:bg-[#f8f9fa] transition-colors focus:outline-none focus-visible:bg-[#f3f4f5]"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold text-[#191c1d] truncate">{a.title}</p>
+                      <p className="text-xs text-[#717973] mt-0.5">{a.course_code} · due {formatDate(a.due_date)}</p>
+                    </div>
+                    <div className="hidden sm:block"><TypeBadge type={a.submission_type} size="sm" /></div>
+                    <div className="text-right text-xs shrink-0">
+                      {a.overdue_count > 0 && <p className="text-[#D90429] font-semibold">{a.overdue_count} overdue</p>}
+                      {a.pending_count > 0 && <p className="text-[#4361EE] font-semibold">{a.pending_count} pending</p>}
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-[#c1c8c2] shrink-0" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
-      <CreateAssignmentModal
-        isOpen={isCreateAssignmentOpen}
-        onClose={() => setIsCreateAssignmentOpen(false)}
-        allGroups={groups}
-        onSaved={() => fetchData()}
-      />
+      <CourseFormModal isOpen={isCourseOpen} onClose={() => setIsCourseOpen(false)} onSaved={load} />
     </DashboardLayout>
   );
 }

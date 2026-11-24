@@ -4,7 +4,7 @@ import StatCard from '../../components/analytics/StatCard.jsx';
 import CompletionBarChart from '../../components/analytics/CompletionBarChart.jsx';
 import GroupPerformanceBars from '../../components/analytics/GroupPerformanceBars.jsx';
 import { getOverviewAnalyticsApi } from '../../api/analytics.js';
-import { GraduationCap, Users, FilePlus, TrendingUp } from 'lucide-react';
+import { GraduationCap, BookOpen, FilePlus, TrendingUp } from 'lucide-react';
 
 export default function AdminAnalytics() {
   const [analytics, setAnalytics] = useState(null);
@@ -32,19 +32,19 @@ export default function AdminAnalytics() {
 
   const completionChartData = (analytics?.perAssignment || []).map((a) => ({
     shortTitle: a.title.length > 12 ? `${a.title.slice(0, 12)}…` : a.title,
-    title: a.title,
+    title: `${a.course_code} · ${a.title}`,
     completion: a.target_groups ? Math.round((a.confirmed_groups / a.target_groups) * 100) : 0,
   }));
 
   const groupPerformanceData = (analytics?.perGroup || []).map((g) => ({
-    name: g.name,
+    name: `${g.name} · ${g.course_code}`,
     completion: g.total ? Math.round((g.confirmed / g.total) * 100) : 0,
   }));
 
   return (
     <DashboardLayout
-      title="Cohort Analytics & Insights"
-      subtitle="Comprehensive performance indicators and completion metrics"
+      title="Analytics"
+      subtitle="Acknowledgment rates across your courses"
     >
       <div className="space-y-6 pb-12">
         <div className="bg-white rounded-2xl p-4 md:p-6 border border-[#e1e3e4] soft-shadow">
@@ -55,29 +55,29 @@ export default function AdminAnalytics() {
         {/* 4 Stat Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            title="Total Students"
-            value={totals.total_students ?? 0}
-            subtitle="Enrolled across all groups"
-            icon={GraduationCap}
+            title="Courses"
+            value={totals.total_courses ?? 0}
+            subtitle={`${totals.total_groups ?? 0} student groups`}
+            icon={BookOpen}
           />
           <StatCard
-            title="Total Groups"
-            value={totals.total_groups ?? 0}
-            subtitle="Active study teams"
-            icon={Users}
+            title="Students"
+            value={totals.total_students ?? 0}
+            subtitle="Enrolled across your courses"
+            icon={GraduationCap}
             variant="gold"
           />
           <StatCard
             title="Total Assignments"
             value={totals.total_assignments ?? 0}
-            subtitle="Coursework items deployed"
+            subtitle="Posted across your courses"
             icon={FilePlus}
             variant="accent"
           />
           <StatCard
-            title="Completion Index"
+            title="Acknowledged"
             value={`${overallCompletion}%`}
-            subtitle={`${totals.confirmed_submissions ?? 0} of ${totals.total_submissions ?? 0} confirmed`}
+            subtitle={`${totals.confirmed_submissions ?? 0} of ${totals.total_submissions ?? 0} submissions`}
             icon={TrendingUp}
             variant="primary"
           />
@@ -91,14 +91,14 @@ export default function AdminAnalytics() {
                 Assignment Completion Rate
               </h3>
               <p className="text-xs text-[#717973]">
-                Percentage of targeted groups that confirmed each assignment
+                Share of students who have acknowledged each assignment
               </p>
             </div>
             <CompletionBarChart data={completionChartData} />
           </div>
 
           <div className="bg-white rounded-3xl p-6 border border-[#e1e3e4] soft-shadow space-y-4">
-            <h3 className="font-bold text-base text-[#191c1d]">Cohort Rankings</h3>
+            <h3 className="font-bold text-base text-[#191c1d]">Group progress</h3>
             <GroupPerformanceBars groups={groupPerformanceData} />
           </div>
         </div>

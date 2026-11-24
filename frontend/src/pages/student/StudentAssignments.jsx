@@ -1,204 +1,133 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import DashboardLayout from '../../components/layout/DashboardLayout.jsx';
-import Button from '../../components/ui/Button.jsx';
-import Badge from '../../components/ui/Badge.jsx';
-import ProgressBar from '../../components/ui/ProgressBar.jsx';
+import StatusBadge from '../../components/ui/StatusBadge.jsx';
+import TypeBadge from '../../components/ui/TypeBadge.jsx';
+import Select from '../../components/ui/Select.jsx';
+import EmptyState from '../../components/ui/EmptyState.jsx';
+import FormAlert from '../../components/ui/FormAlert.jsx';
 import { getMyAssignmentsApi } from '../../api/assignments.js';
-import { attachSubmissionStatus } from '../../utils/assignmentStatus.js';
-import {
-  FileText,
-  Clock,
-  ExternalLink,
-  Search,
-  ArrowRight,
-} from 'lucide-react';
+import { getErrorMessage } from '../../utils/apiErrors.js';
+import { getAssignmentState, deadlineLine } from '../../utils/assignmentStatus.js';
+import { courseAccent } from '../../utils/courseTheme.js';
 import { formatDate } from '../../utils/formatters.js';
+import { FileText, ChevronRight } from 'lucide-react';
+
+const FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'To do' },
+  { id: 'overdue', label: 'Overdue' },
+  { id: 'done', label: 'Acknowledged' },
+];
 
 export default function StudentAssignments() {
-  const navigate = useNavigate();
-
   const [assignments, setAssignments] = useState([]);
-  const [filterStatus, setFilterStatus] = useState('all'); // 'all' | 'pending' | 'submitted'
-  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [courseId, setCourseId] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
-
-  const fetchAssignments = async () => {
-    try {
-      setIsLoading(true);
-      const data = await getMyAssignmentsApi();
-      const withStatus = await attachSubmissionStatus(data || []);
-      setAssignments(withStatus);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    fetchAssignments();
+    (async () => {
+      try {
+        setAssignments((await getMyAssignmentsApi()) || []);
+      } catch (err) {
+        setError(getErrorMessage(err, 'Could not load your assignments.'));
+      } finally {
+        setIsLoading(false);
+      }
+    })();
   }, []);
 
-  const filteredAssignments = assignments.filter((item) => {
-    const matchesSearch =
-      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase()));
+  const courses = useMemo(() => {
+    const map = new Map();
+    assignments.forEach((a) => map.set(a.course_id, `${a.course_code} · ${a.course_title}`));
+    return [...map.entries()];
+  }, [assignments]);
 
-    if (filterStatus === 'pending') {
-      return matchesSearch && !item.is_submitted;
-    }
-    if (filterStatus === 'submitted') {
-      return matchesSearch && item.is_submitted;
-    }
-    return matchesSearch;
+  const counts = useMemo(() => ({
+    all: assignments.length,
+    pending: assignments.filter((a) => getAssignmentState(a) === 'pending').length,
+    overdue: assignments.filter((a) => getAssignmentState(a) === 'overdue').length,
+    done: assignments.filter((a) => a.is_acknowledged).length,
+  }), [assignments]);
+
+  const visible = assignments.filter((a) => {
+    if (courseId !== 'all' && String(a.course_id) !== courseId) return false;
+    if (filter === 'pending') return getAssignmentState(a) === 'pending';
+    if (filter === 'overdue') return getAssignmentState(a) === 'overdue';
+    if (filter === 'done') return a.is_acknowledged;
+    return true;
   });
 
   return (
-    <DashboardLayout
-      title="Assignments & Coursework"
-      subtitle="Track deadlines, resources, and team submissions"
-    >
-      <div className="space-y-6 pb-12">
-        {/* Controls bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl p-4 md:p-6 border border-[#e1e3e4] soft-shadow">
-          {/* Status Filter Tabs */}
-          <div className="flex items-center gap-1.5 bg-[#f3f4f5] p-1 rounded-xl">
-            <button
-              onClick={() => setFilterStatus('all')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                filterStatus === 'all'
-                  ? 'bg-white text-[#012d1d] shadow-xs'
-                  : 'text-[#717973] hover:text-[#191c1d]'
-              }`}
-            >
-              All ({assignments.length})
-            </button>
-            <button
-              onClick={() => setFilterStatus('pending')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                filterStatus === 'pending'
-                  ? 'bg-white text-[#012d1d] shadow-xs'
-                  : 'text-[#717973] hover:text-[#191c1d]'
-              }`}
-            >
-              Pending ({assignments.filter((a) => !a.is_submitted).length})
-            </button>
-            <button
-              onClick={() => setFilterStatus('submitted')}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                filterStatus === 'submitted'
-                  ? 'bg-white text-[#012d1d] shadow-xs'
-                  : 'text-[#717973] hover:text-[#191c1d]'
-              }`}
-            >
-              Completed ({assignments.filter((a) => a.is_submitted).length})
-            </button>
-          </div>
+    <DashboardLayout title="Assignments" subtitle="Everything across your courses">
+      <div className="space-y-5 pb-12">
+        <FormAlert message={error} />
 
-          {/* Search Box */}
-          <div className="relative w-full sm:w-64">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#717973]" />
-            <input
-              type="text"
-              placeholder="Search assignments..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-xs rounded-xl bg-white border border-[#e1e3e4] focus:border-[#012d1d] focus:ring-2 focus:ring-[#012d1d]/10 outline-none"
-            />
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                aria-pressed={filter === f.id}
+                onClick={() => setFilter(f.id)}
+                className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                  filter === f.id ? 'bg-[#012d1d] text-white border-[#012d1d]' : 'bg-white text-[#414844] border-[#c1c8c2] hover:bg-[#f3f4f5]'
+                }`}
+              >
+                {f.label} <span className={filter === f.id ? 'text-white/70' : 'text-[#717973]'}>{counts[f.id]}</span>
+              </button>
+            ))}
           </div>
+          {courses.length > 1 && (
+            <div className="w-full md:w-64">
+              <Select aria-label="Filter by course" value={courseId} onChange={(e) => setCourseId(e.target.value)}>
+                <option value="all">All courses</option>
+                {courses.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+              </Select>
+            </div>
+          )}
         </div>
 
-        {/* Assignments Grid */}
-        {filteredAssignments.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-[#e1e3e4] max-w-md mx-auto my-8">
-            <div className="w-16 h-16 rounded-2xl bg-[#012d1d]/10 text-[#012d1d] flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8" />
-            </div>
-            <h3 className="font-bold text-lg text-[#191c1d] mb-1">No assignments found</h3>
-            <p className="text-xs text-[#717973]">
-              {filterStatus === 'all'
-                ? 'No coursework assigned to your groups currently.'
-                : `No ${filterStatus} assignments found.`}
-            </p>
-          </div>
+        {isLoading ? (
+          <p className="text-sm text-[#717973]">Loading assignments…</p>
+        ) : visible.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title={assignments.length === 0 ? 'No assignments yet' : 'Nothing matches this filter'}
+            message={assignments.length === 0 ? 'Assignments from your enrolled courses will appear here.' : 'Try a different filter.'}
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredAssignments.map((assignment) => {
-              const isSubmitted = assignment.is_submitted;
-
-              return (
-                <div
-                  key={assignment.id}
-                  className="bg-white rounded-3xl p-6 soft-shadow hover-lift border border-[#e1e3e4] flex flex-col justify-between"
+          <ul className="space-y-3">
+            {visible.map((a) => (
+              <li key={a.id}>
+                <Link
+                  to={`/student/assignments/${a.id}`}
+                  className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4 bg-white rounded-2xl border border-[#e1e3e4] px-5 py-4 hover-lift focus:outline-none focus-visible:ring-2 focus-visible:ring-[#012d1d]"
                 >
-                  <div>
-                    {/* Header: Group Tag & Status */}
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="text-[11px] font-bold text-[#012d1d] bg-[#012d1d]/10 px-2.5 py-1 rounded-full">
-                        {assignment.group_name || 'Assigned Group'}
-                      </span>
-
-                      {isSubmitted ? (
-                        <Badge variant="success" dot>
-                          Submitted
-                        </Badge>
-                      ) : (
-                        <Badge variant="warning" dot>
-                          Pending
-                        </Badge>
-                      )}
-                    </div>
-
-                    <h4 className="font-bold text-base text-[#191c1d] mb-2 line-clamp-1">
-                      {assignment.title}
-                    </h4>
-                    <p className="text-xs text-[#414844] mb-4 line-clamp-2 leading-relaxed">
-                      {assignment.description || 'Complete the exercises and confirm submission with your team.'}
+                  <span
+                    className="inline-block self-start w-16 text-center text-xs font-bold py-1 rounded-lg shrink-0"
+                    style={{ backgroundColor: courseAccent(a.course_id).soft, color: courseAccent(a.course_id).hex }}
+                  >
+                    {a.course_code}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-[#191c1d]">{a.title}</p>
+                    <p className={`text-xs mt-1 ${a.is_overdue ? 'text-[#D90429] font-semibold' : 'text-[#717973]'}`}>
+                      {deadlineLine(a, formatDate)}
                     </p>
-
-                    <div className="bg-[#f8f9fa] rounded-2xl p-3.5 border border-[#e1e3e4]/60 space-y-2 mb-4">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-[#717973] flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" /> Due Date
-                        </span>
-                        <span className="font-semibold text-[#191c1d]">
-                          {formatDate(assignment.due_date)}
-                        </span>
-                      </div>
-
-                      {assignment.onedrive_link && (
-                        <div className="flex justify-between items-center text-xs pt-1 border-t border-[#e1e3e4]/40">
-                          <span className="text-[#717973]">Starter Files</span>
-                          <a
-                            href={assignment.onedrive_link}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-[#4361EE] hover:underline font-semibold flex items-center gap-1"
-                          >
-                            <span>OneDrive</span>
-                            <ExternalLink className="w-3 h-3" />
-                          </a>
-                        </div>
-                      )}
-                    </div>
                   </div>
-
-                  <div className="pt-2 border-t border-[#f3f4f5]">
-                    <Button
-                      variant={isSubmitted ? 'outline' : 'primary'}
-                      size="sm"
-                      onClick={() => navigate(`/student/assignments/${assignment.id}`)}
-                      className="w-full flex items-center justify-between"
-                    >
-                      <span>{isSubmitted ? 'View Submission' : 'Review & Submit'}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <TypeBadge type={a.submission_type} size="sm" />
+                    <StatusBadge assignment={a} size="sm" />
+                    <ChevronRight className="w-4 h-4 text-[#c1c8c2] hidden md:block" />
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </DashboardLayout>

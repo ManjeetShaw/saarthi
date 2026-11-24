@@ -3,6 +3,7 @@ import Modal from '../ui/Modal.jsx';
 import Input from '../ui/Input.jsx';
 import Button from '../ui/Button.jsx';
 import { UserPlus, Mail, IdCard, AlertCircle } from 'lucide-react';
+import { getErrorMessage } from '../../utils/apiErrors.js';
 import { addGroupMemberApi } from '../../api/groups.js';
 
 export default function AddMemberModal({ isOpen, onClose, groupId, groupName, onMemberAdded }) {
@@ -27,11 +28,7 @@ export default function AddMemberModal({ isOpen, onClose, groupId, groupName, on
       onClose();
       if (onMemberAdded) onMemberAdded();
     } catch (err) {
-      setError(
-        err.response?.data?.details?.[0]?.message ||
-          err.response?.data?.message ||
-          'Failed to add member. Please check the identifier.'
-      );
+      setError(getErrorMessage(err, 'Failed to add member. Please check the identifier.'));
     } finally {
       setIsLoading(false);
     }

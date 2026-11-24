@@ -1,17 +1,14 @@
 const express = require('express');
-const {
-  confirmSubmission, groupProgress, assignmentSubmissions, assignmentStudentStatus,
-} = require('../controllers/submissionController');
+const { acknowledge, assignmentTracking } = require('../controllers/submissionController');
 const { requireAuth, requireRole } = require('../middleware/auth');
 const { handleValidation } = require('../middleware/validate');
-const {
-  submissionParamRules, groupIdParamRules, assignmentIdOnlyParamRules, paginationRules,
-} = require('../middleware/validators');
+const { assignmentIdOnlyParamRules, trackingRules } = require('../middleware/validators');
 const router = express.Router();
 
-router.post('/:assignmentId/groups/:groupId/confirm', requireAuth, requireRole('student'), submissionParamRules, handleValidation, confirmSubmission);
-router.get('/groups/:groupId/progress', requireAuth, groupIdParamRules, handleValidation, groupProgress);
-router.get('/:assignmentId/students', requireAuth, requireRole('admin'), assignmentIdOnlyParamRules, paginationRules, handleValidation, assignmentStudentStatus);
-router.get('/:assignmentId', requireAuth, requireRole('admin'), assignmentIdOnlyParamRules, paginationRules, handleValidation, assignmentSubmissions);
+// Student: acknowledge (individual: yourself; group: the leader, for everyone)
+router.post('/:assignmentId/acknowledge', requireAuth, requireRole('student'), assignmentIdOnlyParamRules, handleValidation, acknowledge);
+
+// Professor: per-student / per-group status for one assignment, filterable
+router.get('/:assignmentId', requireAuth, requireRole('admin'), trackingRules, handleValidation, assignmentTracking);
 
 module.exports = router;
