@@ -16,6 +16,7 @@ const submissionRoutes = require('./routes/submissionRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 
 const app = express();
+app.set('trust proxy', 1);
 
 // Sets secure-by-default HTTP headers (X-Content-Type-Options, HSTS, etc).
 app.use(helmet());
